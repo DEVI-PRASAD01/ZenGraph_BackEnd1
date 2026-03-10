@@ -1,0 +1,24 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+
+# Machine learning models
+ml_models/
+*.safetensors
+*.pt
+*.bin
+
+# Uploaded files
+uploads/
+
+# Database files
+*.db
+*.ndb
+*.sqlite
+
+# OS files
+.DS_Store
+Thumbs.db
