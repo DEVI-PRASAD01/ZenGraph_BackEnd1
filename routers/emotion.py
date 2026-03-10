@@ -1,0 +1,32 @@
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+from database import get_db
+from models import EmotionLog
+from schemas import EmotionRequest, EmotionResponse
+from ai.emotion_model import predict_emotion_model
+
+router = APIRouter(prefix="/ai", tags=["AI"])
+
+
+@router.post("/predict-emotion", response_model=EmotionResponse)
+def predict_emotion(data: EmotionRequest, db: Session = Depends(get_db)):
+
+    predicted, confidence = predict_emotion_model(data.thought or "")
+
+    log = EmotionLog(
+        user_id=data.user_id,
+        mood=data.mood,
+        thought=data.thought,
+        predicted_emotion=predicted,
+        confidence=confidence  # store float correctly
+    )
+
+    db.add(log)
+    db.commit()
+
+    return EmotionResponse(
+        status="success",
+        message="Emotion predicted successfully",
+        predicted_emotion=predicted,
+        confidence=confidence
+    )
