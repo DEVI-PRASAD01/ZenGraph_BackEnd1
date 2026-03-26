@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 from ai.emotion_model import predict_emotion
-from ai.recommendation_engine import recommend_session
+
 import random
 
 router = APIRouter(prefix="/ai", tags=["AI Coach"])
@@ -28,71 +28,59 @@ def detect_intent(text: str):
 
     text = text.lower()
 
-    if "sleep" in text or "can't sleep" in text:
-        return "sleep"
+    if "sleep" in text:
+        return "Sleep Better"
 
-    if "focus" in text or "concentrate" in text or "study" in text:
-        return "focus"
+    if "focus" in text or "study" in text:
+        return "Improve Focus"
 
-    if "anxious" in text or "stress" in text or "panic" in text:
-        return "anxiety"
+    if "stress" in text or "anxious" in text or "panic" in text:
+        return "Reduce Stress"
 
     if "relax" in text or "calm" in text:
-        return "relax"
+        return "Increase Calm"
 
     if "sad" in text or "down" in text:
-        return "sadness"
+        return "Feel Happier"
 
-    return "general"
+    return "Build Mindfulness"
 
 
 # ==============================
-# DYNAMIC AI RESPONSE
+# EXPERIENCE DETECTION
 # ==============================
-def generate_ai_reply(intent, session):
+def detect_experience(text: str):
 
-    responses = {
+    text = text.lower()
 
-        "sleep": [
-            "It sounds like you're having trouble sleeping.",
-            "Your body might need some rest.",
-            "Let's help your mind slow down for sleep."
-        ],
+    if "beginner" in text or "new" in text:
+        return "Beginner"
 
-        "focus": [
-            "It seems you're trying to improve concentration.",
-            "Let's help you clear distractions and focus.",
-            "A focused mind can improve productivity."
-        ],
+    if "advanced" in text or "experienced" in text:
+        return "Advanced"
 
-        "anxiety": [
-            "It seems you're feeling anxious.",
-            "Let's take a moment to calm your thoughts.",
-            "Slow breathing can help reduce anxiety."
-        ],
+    return "Intermediate"
 
-        "relax": [
-            "It sounds like you need some relaxation.",
-            "Let's help your body release tension.",
-            "Taking time to relax can restore balance."
-        ],
 
-        "sadness": [
-            "It seems you're feeling a bit down.",
-            "Taking a mindful moment may help improve your mood.",
-            "A calming meditation may help uplift your thoughts."
-        ],
+# ==============================
+# AI RESPONSE GENERATION
+# ==============================
+def generate_ai_reply(goal, recommendation):
 
-        "general": [
-            "I'm here to support your mindfulness journey.",
-            "A short meditation may help reset your mind.",
-            "Taking a moment to breathe can help center your thoughts."
-        ]
-    }
+    responses = [
+        "I understand how you're feeling.",
+        "Let's take a mindful moment together.",
+        "A short meditation may help reset your mind.",
+        "This session may help restore your balance.",
+        "Let's guide your mind back to calm."
+    ]
 
-    base_message = random.choice(responses.get(intent, responses["general"]))
+    base = random.choice(responses)
 
-    return f"{base_message} A {session['duration']} minute {session['title']} meditation may help you right now."
+    return (
+        f"{base} I recommend the session '{recommendation['session_name']}'. "
+        f"It is a {recommendation['duration']} minute {recommendation['meditation_type']}."
+    )
 
 
 # ==============================
@@ -106,32 +94,35 @@ def coach_chat(data: CoachRequest):
 
     try:
 
-        # Save conversation memory
+        # ================= MEMORY =================
         if user_id not in conversation_memory:
             conversation_memory[user_id] = []
 
         conversation_memory[user_id].append(message)
 
-        # Keep last 5 messages only
         if len(conversation_memory[user_id]) > 5:
             conversation_memory[user_id].pop(0)
 
-        # Emotion detection
+        # ================= EMOTION AI =================
         emotion, confidence = predict_emotion(message)
 
-        # Intent detection
-        intent = detect_intent(message)
+        # ================= GOAL DETECTION =================
+        goal = detect_intent(message)
 
-        # Meditation recommendation
-        recommendation = recommend_session(intent)
+        # ================= EXPERIENCE DETECTION =================
+        experience = detect_experience(message)
 
-        # Dynamic AI response
-        reply = generate_ai_reply(intent, recommendation)
+        # ================= RECOMMENDATION ENGINE =================
+        recommendation = generate_recommendation(goal, emotion, experience)
+
+        # ================= AI REPLY =================
+        reply = generate_ai_reply(goal, recommendation)
 
         return {
             "emotion": emotion,
             "confidence": confidence,
-            "intent": intent,
+            "goal": goal,
+            "experience": experience,
             "reply": reply,
             "recommended_session": recommendation,
             "conversation_memory": conversation_memory[user_id]
@@ -139,15 +130,16 @@ def coach_chat(data: CoachRequest):
 
     except Exception:
 
-        # Safe fallback response
         return {
-            "emotion": "unknown",
+            "emotion": "Neutral",
             "confidence": 0,
-            "intent": "general",
-            "reply": "I'm here to help. A short breathing meditation may help you relax.",
+            "goal": "Build Mindfulness",
+            "experience": "Beginner",
+            "reply": "Let's begin with a short breathing meditation.",
             "recommended_session": {
-                "title": "Mindful Breathing",
-                "duration": 5
+                "session_name": "Mindful Breathing",
+                "duration": 5,
+                "meditation_type": "Breathing Meditation"
             },
             "conversation_memory": []
         }

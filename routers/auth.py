@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from fastapi_mail import FastMail, MessageSchema
+from pydantic import BaseModel
 
 from database import get_db
 from models import User, MeditationSession, CheckIn, UserGoal
@@ -28,6 +29,7 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 # ================= SIGNUP =================
 @router.post("/signup", response_model=UserSignupResponse)
 def signup(user: UserSignupRequest, db: Session = Depends(get_db)):
+
     if user.password != user.confirm_password:
         raise HTTPException(status_code=400, detail="Passwords do not match")
 
@@ -100,16 +102,11 @@ def get_dashboard(user_id: int, db: Session = Depends(get_db)):
     )
     graph_data = [c.mood_score for c in checkins]
 
-    setup_record = db.query(MeditationSession).filter(
-        MeditationSession.user_id == user_id,
-        MeditationSession.status == "setup"
-    ).first()
-
     goal_record = db.query(UserGoal).filter(
         UserGoal.user_id == user_id
     ).first()
 
-    profile_completed = True if (setup_record and goal_record) else False
+    profile_completed = True if goal_record else False
 
     return DashboardResponse(
         total_sessions=total_sessions,
@@ -119,10 +116,9 @@ def get_dashboard(user_id: int, db: Session = Depends(get_db)):
         profile_completed=profile_completed
     )
 
-# ================= SELECT GOAL =================
+# ================= SELECT GOAL (original endpoint kept) =================
 @router.post("/select-goal", response_model=GoalSelectionResponse)
 def select_goal(data: GoalSelectionRequest, db: Session = Depends(get_db)):
-    # Check if goal already exists for user
     existing_goal = db.query(UserGoal).filter(UserGoal.user_id == data.user_id).first()
 
     if existing_goal:
@@ -140,6 +136,58 @@ def select_goal(data: GoalSelectionRequest, db: Session = Depends(get_db)):
         status="success",
         message="Goal selection updated successfully"
     )
+
+
+# ================= SAVE GOAL + EXPERIENCE (NEW) =================
+class SaveGoalRequest(BaseModel):
+    user_id: int
+    goal_type: str    # e.g. "Reduce Stress"
+    experience: str   # e.g. "beginner"
+
+@router.post("/save-goal")
+def save_goal(data: SaveGoalRequest, db: Session = Depends(get_db)):
+    """
+    POST /auth/save-goal
+    Saves goal AND experience together. Called after user picks both.
+    Replaces old goal if exists.
+    """
+    # Delete old and save fresh
+    db.query(UserGoal).filter(UserGoal.user_id == data.user_id).delete()
+
+    new_goal = UserGoal(
+        user_id=data.user_id,
+        goal_type=data.goal_type,
+        experience=data.experience
+    )
+    db.add(new_goal)
+    db.commit()
+
+    return {
+        "status": "success",
+        "message": f"Goal '{data.goal_type}' with experience '{data.experience}' saved"
+    }
+
+
+# ================= GET GOAL =================
+@router.get("/get-goal/{user_id}")
+def get_goal(user_id: int, db: Session = Depends(get_db)):
+    """
+    GET /auth/get-goal/{user_id}
+    Returns goal and experience for a user.
+    """
+    goal = db.query(UserGoal).filter(
+        UserGoal.user_id == user_id
+    ).order_by(UserGoal.created_at.desc()).first()
+
+    if not goal:
+        return {"status": "not_found", "goal_type": None, "experience": None}
+
+    return {
+        "status": "success",
+        "goal_type": goal.goal_type,
+        "experience": goal.experience
+    }
+
 
 # ================= CHECKIN =================
 @router.post("/checkin", response_model=SimpleResponse)
@@ -167,15 +215,15 @@ async def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get
     db.commit()
 
     message = MessageSchema(
-    subject="ZenGraph Password Reset OTP",
-    recipients=[data.email],
-    body=f"""
-    <h3>Password Reset OTP</h3>
-    <p>Your OTP is: <b>{otp}</b></p>
-    <p>This OTP is valid for 5 minutes.</p>
-    """,
-    subtype="html"
-)
+        subject="ZenGraph Password Reset OTP",
+        recipients=[data.email],
+        body=f"""
+        <h3>Password Reset OTP</h3>
+        <p>Your OTP is: <b>{otp}</b></p>
+        <p>This OTP is valid for 5 minutes.</p>
+        """,
+        subtype="html"
+    )
 
     fm = FastMail(conf)
     await fm.send_message(message)

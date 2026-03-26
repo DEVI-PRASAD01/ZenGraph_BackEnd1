@@ -12,14 +12,14 @@ class AnalysisRequest(BaseModel):
     post_mood: str
     duration: int
 
-
 @router.post("/analyze")
 def analyze(data: AnalysisRequest):
-
     result = analyze_session(
         data.pre_emotion,
         data.post_mood,
         data.duration
     )
-
-    return result
+    return {
+        "status": "success",
+        "analysis": result
+    }

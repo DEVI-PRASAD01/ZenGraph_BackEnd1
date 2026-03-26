@@ -1,13 +1,17 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+
 from routers import library
 from routers import library_plan
 from routers import coach
+from routers import social
+from routers import chat 
 
 from database import engine, Base
 
-# Routers
 from routers import (
     auth,
     session,
@@ -21,35 +25,31 @@ from routers import (
 
 import os
 
-# ==============================
-# Create Database Tables
-# ==============================
 Base.metadata.create_all(bind=engine)
 
-# ==============================
-# Create FastAPI App
-# ==============================
 app = FastAPI(
     title="ZenGraph API",
     version="1.0.0"
 )
 
-# ==============================
-# CORS Configuration
-# ==============================
+# ✅ ADDED: CLEAN VALIDATION ERROR HANDLER
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    error_message = exc.errors()[0]["msg"]
+    return JSONResponse(
+        status_code=400,
+        content={"message": error_message}
+    )
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000", "http://localhost:5174"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ==============================
-# Static Files
-# ==============================
 UPLOAD_FOLDER = "uploads"
-
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
@@ -58,10 +58,6 @@ app.mount(
     StaticFiles(directory=UPLOAD_FOLDER),
     name="uploads"
 )
-
-# ==============================
-# Include Routers
-# ==============================
 
 app.include_router(auth.router)
 app.include_router(emotion.router)
@@ -74,10 +70,9 @@ app.include_router(session_analysis.router)
 app.include_router(library.router)
 app.include_router(library_plan.router)
 app.include_router(coach.router)
+app.include_router(social.router)
+app.include_router(chat.router)
 
-# ==============================
-# Root Endpoint
-# ==============================
 @app.get("/")
 def root():
     return {"message": "ZenGraph API is running successfully"}

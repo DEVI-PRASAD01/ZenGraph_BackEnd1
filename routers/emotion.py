@@ -3,15 +3,15 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import EmotionLog
 from schemas import EmotionRequest, EmotionResponse
-from ai.emotion_model import predict_emotion_model
+from ai.emotion_model import predict_emotion
 
 router = APIRouter(prefix="/ai", tags=["AI"])
 
 
 @router.post("/predict-emotion", response_model=EmotionResponse)
-def predict_emotion(data: EmotionRequest, db: Session = Depends(get_db)):
+def detect_emotion(data: EmotionRequest, db: Session = Depends(get_db)):
 
-    predicted, confidence = predict_emotion_model(data.thought or "")
+    predicted, confidence = predict_emotion(data.thought or "")
 
     log = EmotionLog(
         user_id=data.user_id,

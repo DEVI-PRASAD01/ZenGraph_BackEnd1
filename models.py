@@ -29,11 +29,9 @@ class User(Base):
 
     enable_notifications = Column(Boolean, default=True)
 
-    # 🔥 NEW PROFILE FIELDS
     profile_image = Column(String(255), nullable=True)
     data_sharing_consent = Column(Boolean, default=False)
 
-    # 🔐 PASSWORD RESET FIELDS
     reset_otp = Column(String(6), nullable=True)
     otp_created_at = Column(DateTime, nullable=True)
 
@@ -54,7 +52,7 @@ class CheckIn(Base):
 
 
 # =========================
-# USER GOALS TABLE
+# USER GOALS TABLE  ← FIXED: added experience column
 # =========================
 class UserGoal(Base):
     __tablename__ = "user_goals"
@@ -62,6 +60,7 @@ class UserGoal(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
     goal_type = Column(String(100), nullable=False)
+    experience = Column(String(50), nullable=True)   # ← NEW FIELD
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -83,7 +82,7 @@ class EmotionLog(Base):
 
 
 # =========================
-# MEDITATION SESSION TABLE
+# MEDITATION SESSION TABLE  ← FIXED: mood_before is String, added mood_after/notes/completed_at
 # =========================
 class MeditationSession(Base):
     __tablename__ = "meditation_sessions"
@@ -93,18 +92,20 @@ class MeditationSession(Base):
     user_id = Column(Integer, nullable=False)
 
     goal = Column(String(100))
-    mood_before = Column(Integer)
-    stress_before = Column(Integer)
+    mood_before = Column(String(50))        # ← FIXED: was Integer, now String
+    mood_after = Column(String(50), nullable=True)   # ← NEW
+    stress_before = Column(Integer, nullable=True)
     experience_level = Column(String(50))
     session_name = Column(String(150))
-    duration = Column(Integer)
+    duration = Column(Integer, default=0)
     techniques = Column(String(255))
     match_score = Column(Integer)
+    notes = Column(Text, nullable=True)     # ← NEW
 
     status = Column(String(50), default="generated")
 
-    start_time = Column(TIMESTAMP, nullable=True)
-    end_time = Column(TIMESTAMP, nullable=True)
+    started_at = Column(TIMESTAMP, nullable=True)    # ← RENAMED from start_time
+    completed_at = Column(TIMESTAMP, nullable=True)  # ← RENAMED from end_time
 
     created_at = Column(TIMESTAMP, server_default=func.now())
 
@@ -127,3 +128,19 @@ class AIPlan(Base):
     match_percent = Column(Integer)
 
     created_at = Column(TIMESTAMP, server_default=func.now())
+
+
+# =========================
+# MEDITATION LIBRARY TABLE
+# =========================
+class MeditationLibrary(Base):
+    __tablename__ = "meditation_library"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    title = Column(String(255))
+    category = Column(String(100))
+    technique = Column(String(100))
+    duration = Column(Integer)
+    level = Column(String(50))
+    description = Column(Text)

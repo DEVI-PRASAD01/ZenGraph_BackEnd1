@@ -6,7 +6,7 @@ import re
 # ================= USER SIGNUP =================
 class UserSignupRequest(BaseModel):
     name: str
-    email: EmailStr
+    email: str
     phone_number: str
     password: str
     confirm_password: str
@@ -16,12 +16,27 @@ class UserSignupRequest(BaseModel):
     @field_validator("phone_number")
     @classmethod
     def validate_phone(cls, v: str):
-        # Accept +<countrycode><7-12 digits> (supports global numbers)
         pattern = r"^\+\d{1,3}\d{7,12}$"
         if not re.match(pattern, v):
             raise ValueError(
                 "Phone number must include country code and valid digits (e.g., +919876543210)"
             )
+        return v
+
+    # -------- NAME VALIDATION --------
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str):
+        if not re.match(r'^[A-Za-z]+$', v):
+            raise ValueError("Name is not valid. Only alphabets allowed.")
+        return v
+
+    # -------- EMAIL VALIDATION --------
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str):
+        if not re.match(r'^[A-Za-z0-9]+@gmail\.com$', v):
+            raise ValueError("Email is not valid. Use format like example@gmail.com")
         return v
 
     # -------- PASSWORD VALIDATION --------
@@ -60,26 +75,41 @@ class UserSignupResponse(BaseModel):
 
 # ================= LOGIN (EMAIL OR PHONE) =================
 class UserLoginRequest(BaseModel):
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
     phone_number: Optional[str] = None
     password: str
 
-    # Ensure at least one identifier is present
-    @model_validator(mode="after")
-    def validate_login_identifier(self):
-        if not self.email and not self.phone_number:
-            raise ValueError("Either email or phone_number must be provided")
-        return self
+    # -------- EMAIL VALIDATION --------
+    @field_validator("email")
+    @classmethod
+    def validate_email_login(cls, v: Optional[str]):
+        if v is None or v == "":
+            return None
 
-    # Validate phone format only if provided
+        if not re.match(r'^[A-Za-z0-9]+@gmail\.com$', v):
+            raise ValueError("Email is not valid. Use format like example@gmail.com")
+
+        return v
+
+    # -------- PHONE VALIDATION --------
     @field_validator("phone_number")
     @classmethod
     def validate_phone_optional(cls, v: Optional[str]):
-        if v:
-            pattern = r"^\+\d{1,3}\d{7,12}$"
-            if not re.match(pattern, v):
-                raise ValueError("Invalid phone number format (e.g., +919876543210)")
+        if v is None or v == "":
+            return None
+
+        pattern = r"^\+\d{1,3}\d{7,12}$"
+        if not re.match(pattern, v):
+            raise ValueError("Invalid phone number format")
+
         return v
+
+    # -------- ENSURE ONE IS PRESENT --------
+    @model_validator(mode="after")
+    def validate_login_identifier(self):
+        if not self.email and not self.phone_number:
+            raise ValueError("Provide email or phone_number")
+        return self
 
 
 class UserLoginResponse(BaseModel):
@@ -144,9 +174,12 @@ class RecommendPlanRequest(BaseModel):
 
 class RecommendPlanResponse(BaseModel):
     meditation_type: str
+    session_name: str
     duration: int
+    technique: str   # ✅ ADDED
     guidance_style: str
     message: str
+    match_score: float
 
 
 # ================= PROFILE =================
@@ -165,6 +198,7 @@ class ProfileResponse(BaseModel):
 class UpdatePreferences(BaseModel):
     enable_notifications: bool
     data_sharing_consent: bool
+
 
 # ================= FORGOT PASSWORD =================
 class ForgotPasswordRequest(BaseModel):

@@ -1,73 +1,91 @@
-def generate_recommendation(goal: str, emotion: str, experience: str):
+from sqlalchemy.orm import Session
+from models import MeditationLibrary
+import joblib
 
-    meditation_type = "Mindfulness Meditation"
-    guidance_style = "Calm and steady"
-    message = "Stay aware of your breath and remain present."
+# ================= LOAD AI MODEL =================
 
-    # Emotion-based logic
-    if emotion == "Stressed":
-        meditation_type = "Breathing Meditation"
-        guidance_style = "Gentle and slow"
-        message = "Take slow deep breaths to release stress."
+model = joblib.load("ml_models/recommendation_model.pkl")
+goal_encoder = joblib.load("ml_models/goal_encoder.pkl")
+emotion_encoder = joblib.load("ml_models/emotion_encoder.pkl")
+experience_encoder = joblib.load("ml_models/experience_encoder.pkl")
+session_encoder = joblib.load("ml_models/session_encoder.pkl")
 
-    elif emotion == "Sad":
-        meditation_type = "Gratitude Meditation"
-        guidance_style = "Warm and comforting"
-        message = "Focus on things you are grateful for."
+print("✅ AI Recommendation Model Loaded")
 
-    elif emotion == "Tense":
-        meditation_type = "Body Scan Meditation"
-        guidance_style = "Relaxing and grounding"
-        message = "Relax each part of your body step by step."
 
-    elif emotion == "Happy":
-        meditation_type = "Loving-kindness Meditation"
-        guidance_style = "Positive and uplifting"
-        message = "Spread positive thoughts to yourself and others."
+# ================= GOAL MAPPING =================
 
-    elif emotion == "Calm":
-        meditation_type = "Mindfulness Meditation"
-        guidance_style = "Balanced and steady"
-        message = "Maintain your calm awareness."
+GOAL_MAP = {
+    "reduce_stress": "Stress Relief",
+    "improve_focus": "Focus",
+    "sleep_better": "Sleep",
+    "build_mindfulness": "Relaxation",
+    "increase_calm": "Relaxation",
+    "feel_happier": "Relaxation"
+}
 
-    # Experience-based duration (INTEGER)
-    if experience == "Beginner":
-        duration = 5
-    elif experience == "Intermediate":
-        duration = 10
-    else:
-        duration = 15
 
-    return meditation_type, guidance_style, duration, message
+# ================= GET SESSION FROM DATABASE =================
 
-def recommend_session(intent):
+def get_session_from_db(db: Session, category: str):
+    return db.query(MeditationLibrary)\
+        .filter(MeditationLibrary.category == category)\
+        .first()
 
-    sessions = {
 
-        "sleep": {
-            "title": "Deep Sleep Meditation",
-            "duration": 15
-        },
+# ================= AI RECOMMENDATION ENGINE =================
 
-        "focus": {
-            "title": "Mindful Focus",
-            "duration": 10
-        },
+def generate_recommendation(db: Session, goal: str, emotion: str, experience: str):
 
-        "anxiety": {
-            "title": "Quick Calm",
-            "duration": 5
-        },
+    try:
+        # Map frontend → model labels
+        mapped_goal = GOAL_MAP.get(goal, "Relaxation")
 
-        "relax": {
-            "title": "Deep Relaxation",
-            "duration": 10
-        },
+        # Encode inputs
+        g = goal_encoder.transform([mapped_goal])[0]
+        e = emotion_encoder.transform([emotion])[0]
+        x = experience_encoder.transform([experience])[0]
 
-        "general": {
-            "title": "Mindful Breathing",
-            "duration": 5
+        # Predict
+        prediction = model.predict([[g, e, x]])
+        meditation_type = session_encoder.inverse_transform(prediction)[0]
+
+        print("🧠 AI Prediction:", meditation_type)
+
+        # Fetch from DB
+        session = get_session_from_db(db, meditation_type)
+
+        if session:
+            return {
+                "meditation_type": meditation_type,
+                "session_name": session.title,
+                "duration": session.duration,
+                "technique": session.technique,
+                "guidance_style": "Calm and supportive",
+                "message": f"This {session.duration}-minute {meditation_type.lower()} session is recommended for you.",
+                "match_score": 0.95
+            }
+
+        # fallback (if DB empty)
+        return {
+            "meditation_type": meditation_type,
+            "session_name": "Mind Balance Session",
+            "duration": 10,
+            "technique": "Mindful Breathing",
+            "guidance_style": "Calm and supportive",
+            "message": "Fallback session",
+            "match_score": 0.85
         }
-    }
 
-    return sessions.get(intent, sessions["general"])
+    except Exception as e:
+        print("❌ AI ERROR:", e)
+
+        return {
+            "meditation_type": "Mindfulness Meditation",
+            "session_name": "Recovery Session",
+            "duration": 10,
+            "technique": "Mindful Breathing",
+            "guidance_style": "Calm and supportive",
+            "message": "System recovery recommendation",
+            "match_score": 0.80
+        }

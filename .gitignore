@@ -1,24 +1,31 @@
-# Python cache
+# Python
 __pycache__/
 *.pyc
 
-# Virtual environment
+# Virtual Environment
 venv/
+.venv/
 
-# Machine learning models
+# ML Models
 ml_models/
-*.safetensors
+*.pkl
 *.pt
-*.bin
+*.pth
+*.safetensors
 
-# Uploaded files
+# Data
+training_data/
+
+# Uploads
 uploads/
 
-# Database files
+# Database
 *.db
 *.ndb
-*.sqlite
+*.new
 
-# OS files
-.DS_Store
-Thumbs.db
+# Env files
+.env
+
+# VS Code
+.vscode/
