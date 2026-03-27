@@ -1,31 +1,17 @@
-# Python
 __pycache__/
 *.pyc
 
-# Virtual Environment
 venv/
 .venv/
 
-# ML Models
-ml_models/
-*.pkl
-*.pt
-*.pth
 *.safetensors
 
-# Data
 training_data/
-
-# Uploads
 uploads/
 
-# Database
 *.db
 *.ndb
 *.new
 
-# Env files
 .env
-
-# VS Code
 .vscode/
