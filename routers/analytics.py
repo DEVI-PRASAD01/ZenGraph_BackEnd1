@@ -107,19 +107,23 @@ def completion_map(user_id: int, db: Session = Depends(get_db)):
 # ================= MOOD HISTORY =================
 @router.get("/mood-history/{user_id}")
 def mood_history(user_id: int, db: Session = Depends(get_db)):
-    logs = db.query(EmotionLog).filter(
-        EmotionLog.user_id == user_id
-    ).order_by(EmotionLog.created_at.desc()).limit(7).all()
+
+    checkins = db.query(CheckIn).filter(
+        CheckIn.user_id == user_id
+    ).order_by(CheckIn.created_at.desc()).limit(7).all()
+
+    print("MOOD HISTORY DATA:", checkins)  # 🔥 DEBUG
 
     return {
         "status": "success",
         "history": [
-            {"mood": l.mood, "date": str(l.created_at)}
-            for l in logs
+            {
+                "mood": c.mood_score,
+                "date": str(c.created_at)
+            }
+            for c in checkins
         ]
     }
-
-
 # ================= MOOD TREND =================
 @router.get("/mood-trend/{user_id}")
 def mood_trend(user_id: int, db: Session = Depends(get_db)):
